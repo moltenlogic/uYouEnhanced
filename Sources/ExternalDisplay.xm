@@ -177,10 +177,13 @@ static void UYTExtAttach(void) {
     %orig;
 }
 
-// Original uses [UIScreen screens][1]. Use our scene's screen instead (nil when no
-// external display) so the service only mirrors when our scene exists.
+// Original reads the second entry of UIScreen.screens. Use our scene's screen instead
+// (nil when no external display) so the service only mirrors when our scene exists.
 - (void)detectExternalScreen {
-    if (!UYTExtEnabled()) { %orig; return; }
+    if (!UYTExtEnabled()) {
+        %orig;
+        return;
+    }
     UIWindowScene *scene = gUYTExtScene;
     UYTSetIvar(self, "_secondScreen", scene.screen);
 }
