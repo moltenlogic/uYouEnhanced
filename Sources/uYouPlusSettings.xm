@@ -432,6 +432,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH(LOC(@"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER"), LOC(@"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER_DESC"), kDisableChapterSkip);
     SWITCH(LOC(@"ALWAYS_USE_REMAINING_TIME"), LOC(@"ALWAYS_USE_REMAINING_TIME_DESC"), kAlwaysShowRemainingTime);
     SWITCH(LOC(@"DISABLE_TOGGLE_TIME_REMAINING"), LOC(@"DISABLE_TOGGLE_TIME_REMAINING_DESC"), kDisableRemainingTime);
+    SWITCH2(LOC(@"EXTERNAL_DISPLAY_PLAYBACK"), LOC(@"EXTERNAL_DISPLAY_PLAYBACK_DESC"), kExternalDisplayPlayback);
 
     # pragma mark - Video controls overlay options
     SECTION_HEADER(LOC(@"VIDEO_CONTROLS_OVERLAY_OPTIONS"));

@@ -64,6 +64,11 @@ on:
         default: false
         required: false
         type: boolean
+      external_display:
+        description: "External display scene (fullscreen video on Xreal/HDMI, keeps playing when locked; disables mirroring)"
+        default: true
+        required: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -317,6 +322,29 @@ jobs:
           zip -q "../$IPA" "$PLIST" Payload/YouTube.app/*.png
           cd .. && rm -rf iconwork
           echo "Alternate icons registered into $(basename "$IPA")"
+
+      - name: Declare External Display Scene
+        if: ${{ inputs.external_display }}
+        run: |
+          set -euo pipefail
+          IPA="main/packages/${{ steps.strip_ipa.outputs.final_ipa }}"
+          rm -rf extwork && mkdir extwork && cd extwork
+          unzip -q "../$IPA" "Payload/YouTube.app/Info.plist"
+          PLIST="Payload/YouTube.app/Info.plist"
+          PB=/usr/libexec/PlistBuddy
+          BASE=":UIApplicationSceneManifest:UISceneConfigurations"
+          # Same roles VLC declares. UYTExternalSceneDelegate lives in Sources/ExternalDisplay.xm.
+          for ROLE in UIWindowSceneSessionRoleExternalDisplayNonInteractive UIWindowSceneSessionRoleExternalDisplay; do
+            $PB -c "Delete $BASE:$ROLE" "$PLIST" 2>/dev/null || true
+            $PB -c "Add $BASE:$ROLE array" "$PLIST"
+            $PB -c "Add $BASE:$ROLE:0 dict" "$PLIST"
+            $PB -c "Add $BASE:$ROLE:0:UISceneClassName string UIWindowScene" "$PLIST"
+            $PB -c "Add $BASE:$ROLE:0:UISceneConfigurationName string UYTExternalDisplay" "$PLIST"
+            $PB -c "Add $BASE:$ROLE:0:UISceneDelegateClassName string UYTExternalSceneDelegate" "$PLIST"
+          done
+          $PB -c "Print :UIApplicationSceneManifest" "$PLIST"
+          zip -q "../$IPA" "$PLIST"
+          cd .. && rm -rf extwork
 
       - name: Record final IPA name
         run: echo "RENAMED_IPA=${{ steps.strip_ipa.outputs.final_ipa }}" >> "$GITHUB_ENV"
