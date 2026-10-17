@@ -154,8 +154,8 @@ jobs:
 
       - name: Hash YT ipa url
         run: |
-          URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
-          echo ::add-mask::$URL_YT
+          URL_YT="$(jq -r '.inputs.decrypted_youtube_url // empty' $GITHUB_EVENT_PATH)"
+          [ -n "$URL_YT" ] && echo ::add-mask::$URL_YT
           echo URL_YT=$URL_YT >> $GITHUB_ENV
 
       - name: Prepare YouTube iPA
