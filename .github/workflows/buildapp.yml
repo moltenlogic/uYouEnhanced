@@ -25,9 +25,9 @@ on:
           - "3.0.4"
           - "3.0.3"
       decrypted_youtube_url:
-        description: "Direct URL of the decrypted YouTube IPA"
+        description: "Direct URL of the decrypted YouTube IPA (leave blank to use the IPA in the private draft release 'youtube-ipa')"
         default: ""
-        required: true
+        required: false
         type: string
       bundle_id:
         description: "Modify the bundle ID"
@@ -161,7 +161,11 @@ jobs:
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
-          wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
+          if [ -n "$YOUTUBE_URL" ]; then
+            wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
+          else
+            gh release download youtube-ipa -R "$GITHUB_REPOSITORY" -p "*.ipa" -O main/YouTube.ipa
+          fi
           cd main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
@@ -171,6 +175,7 @@ jobs:
 
         env:
           YOUTUBE_URL: ${{ env.URL_YT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify YouTube IPA is genuine (Apple signature + every byte)
         run: |

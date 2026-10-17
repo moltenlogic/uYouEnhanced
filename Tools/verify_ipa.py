@@ -53,6 +53,9 @@ HASH_NAMES = {1: "sha1", 2: "sha256", 3: "sha256-trunc", 4: "sha384"}
 OID_CDHASHES_PLIST = "1.2.840.113635.100.9.1"
 
 
+checked_nested = set()
+
+
 class VerifyError(Exception):
     pass
 
@@ -267,17 +270,28 @@ def verify_macho(path, label):
             variants.insert(0, bytes(patched))
         hf = HASH_FUNCS[best["hash_type"]]
         ps = best["page_size"]
-        bad = 0
+        # Apple's page hashes cover the ENCRYPTED bytes, so pages inside the
+        # decrypted range cannot be checked this way. Everything else can.
+        if crypt and crypt[1] == 0:
+            c0, c1 = crypt[2], crypt[2] + crypt[3]
+        else:
+            c0 = c1 = 0
+        bad = skipped = 0
         for i in range(best["n_code"]):
             s, e = i * ps, min((i + 1) * ps, best["code_limit"])
+            if s >= c0 and e <= c1:
+                skipped += 1
+                continue
             want = cd_slot(best, i)
             if not any(hf(v[s:e]).digest()[:best["hash_size"]] == want for v in variants):
                 bad += 1
         if bad:
-            raise VerifyError("%d of %d code pages differ from Google's original" % (bad, best["n_code"]))
+            raise VerifyError("%d of %d checkable code pages differ from Google's original" % (bad, best["n_code"] - skipped))
         enc = "decrypted" if crypt and crypt[1] == 0 else ("ENCRYPTED" if crypt and crypt[1] else "plain")
-        print("  OK    %-45s %s  %d pages %s  team %s  [%s]" % (
-            label, best["ident"], best["n_code"], HASH_NAMES[best["hash_type"]], best["team"], enc))
+        print("  OK    %-45s %s  %d/%d pages %s  team %s  [%s]" % (
+            label, best["ident"], best["n_code"] - skipped, best["n_code"], HASH_NAMES[best["hash_type"]], best["team"], enc))
+        if skipped and label:
+            notes.append("%s: %d pages were decrypted and can't be checked against Apple's hashes" % (label, skipped))
         if crypt and crypt[1] != 0:
             notes.append("%s is still encrypted - this IPA is NOT decrypted and won't run sideloaded" % label)
     return best, trusted_cdhashes
@@ -297,6 +311,7 @@ def verify_bundle(bundle, label):
     info = plistlib.load(open(info_path, "rb"))
     exe_name = info["CFBundleExecutable"]
     exe = os.path.join(bundle, exe_name)
+    checked_nested.add(bundle)
     try:
         cd, own_hashes = verify_macho(exe, label + "/" + exe_name)
     except VerifyError as e:
@@ -346,6 +361,21 @@ def verify_bundle(bundle, label):
                 ok = file_hash(full, "sha1") == bytes(entry["hash"])
         else:
             ok = file_hash(full, "sha1") == bytes(entry)
+        if not ok and is_macho(full):
+            # Decrypted executables can't match a whole-file hash taken over the
+            # encrypted original; check their own Apple signature page-by-page instead.
+            try:
+                verify_macho(full, label + "/" + rel)
+                parent = os.path.dirname(full)
+                while parent != bundle and not os.path.exists(os.path.join(parent, "_CodeSignature", "CodeResources")):
+                    parent = os.path.dirname(parent)
+                if parent != bundle and parent not in checked_nested:
+                    checked_nested.add(parent)
+                    verify_bundle(parent, label + "/" + os.path.relpath(parent, bundle))
+                continue
+            except VerifyError as e:
+                fail("%s/%s: %s" % (label, rel, e))
+                continue
         if not ok:
             fail("%s/%s: content modified" % (label, rel))
 
@@ -411,6 +441,12 @@ def main():
     print("Checking %s %s (%s)" % (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"),
                                    apps[0]))
     extra_top = [d for d in os.listdir(payload) if d != apps[0] and not d.startswith(".")]
+    # decrypt.day drops a tiny text marker here; allow it only if it is small, non-code text.
+    for d in list(extra_top):
+        fp = os.path.join(payload, d)
+        if d == "decrypt.day" and os.path.isfile(fp) and os.path.getsize(fp) < 64 and not is_macho(fp):
+            notes.append("ignored decrypt.day marker file (%r)" % open(fp, "rb").read().decode("ascii", "replace"))
+            extra_top.remove(d)
     for d in extra_top:
         fail("Payload/%s: extra item next to the app" % d)
     verify_bundle(app, apps[0])
@@ -423,7 +459,9 @@ def main():
     if any("still encrypted" in n for n in notes):
         print("RESULT: genuine Google code, but still encrypted - unusable for sideloading.")
         sys.exit(3)
-    print("RESULT: GENUINE - every byte of code and every file matches Google's App Store release.")
+    print("RESULT: GENUINE - Apple App Store signature, Google team ID, every resource file, every load\n"
+          "        command and every unencrypted code page match Google's release. Decrypted code pages\n"
+          "        can't be hashed against Apple's signature (it covers the encrypted bytes).")
     sys.exit(0)
 
 
