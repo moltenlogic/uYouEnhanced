@@ -107,16 +107,21 @@ before-all::
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
- 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
- 	fi; \
+		curl -sfL "https://repo.miro92.com/debs/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb" -o $(UYOU_DEB) || { $(PRINT_FORMAT_ERROR) "uYou download failed"; exit 1; }; \
+	fi; \
+	EXPECTED="$$(grep "^$(UYOU_VERSION) " Tools/uyou-sha256.txt | cut -d" " -f2)"; \
+	ACTUAL="$$(shasum -a 256 $(UYOU_DEB) | cut -d" " -f1)"; \
+	if [[ -z "$$EXPECTED" || "$$EXPECTED" != "$$ACTUAL" ]]; then \
+		$(PRINT_FORMAT_ERROR) "uYou $(UYOU_VERSION) checksum mismatch or unknown version (got $$ACTUAL). Refusing to build."; rm -f $(UYOU_DEB); exit 1; \
+	fi; \
+	$(PRINT_FORMAT_BLUE) "uYou $(UYOU_VERSION) checksum verified against official MiRO92 release"; \
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
 		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
 		fi; \
 	fi; \
-	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
+	$(PRINT_FORMAT_BLUE) "uYou ready (official, unmodified)";
 
 before-package::
 	@bash tools/stage-ffmpeg.sh "$(THEOS_PROJECT_DIR)/Bundles"

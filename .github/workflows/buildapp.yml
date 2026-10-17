@@ -17,10 +17,13 @@ on:
         required: true
         type: string
       uyou_version:
-        description: "uYou Version"
+        description: "uYou Version (official MiRO92 build, checksum-pinned in Tools/uyou-sha256.txt)"
         default: "3.0.4"
         required: true
-        type: string
+        type: choice
+        options:
+          - "3.0.4"
+          - "3.0.3"
       decrypted_youtube_url:
         description: "Direct URL of the decrypted YouTube IPA"
         default: ""
@@ -92,7 +95,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: theos/theos
-          ref: master
+          ref: 304e0799973e8145f32e4ca2de6c747a84b758ce # pinned 2026-10-08
           path: theos
           submodules: recursive
 
@@ -106,10 +109,10 @@ jobs:
       - name: Download iOS SDK
         if: steps.SDK.outputs.cache-hit != 'true'
         run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/aricloverALT/sdks/ sdks
+          git clone --quiet -n --filter=tree:0 https://github.com/aricloverALT/sdks/ sdks
           cd sdks
           git sparse-checkout set --no-cone iPhoneOS${{ inputs.sdk_version }}.sdk
-          git checkout --quiet
+          git checkout --quiet ad607cb07fe4ad1c9b91cf970bd228c2a9253207 # pinned 2026-09-17
           mv *.sdk $THEOS/sdks
         env:
           THEOS: ${{ github.workspace }}/theos
@@ -118,7 +121,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
-          ref: master
+          ref: 662fd704aed27b8956bcfe52a35e2b676921ab42 # pinned
           path: theos-jailed
 
       - name: Install Theos Jailed
@@ -144,8 +147,9 @@ jobs:
 
       - name: Install cyan and tbd
         run: |
-          pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
+          pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/740d3716dcd98c20c000f12cdb88f1f0b2a533a4.zip # pinned
           wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
+          echo "c282f24670f15e6831bbe5a1ac993de9c944f3ba5a608bcf68c094351e6bd453  /usr/local/bin/tbd" | shasum -a 256 -c -
           chmod +x /usr/local/bin/tbd
 
       - name: Hash YT ipa url
@@ -167,6 +171,12 @@ jobs:
 
         env:
           YOUTUBE_URL: ${{ env.URL_YT }}
+
+      - name: Verify YouTube IPA is genuine (Apple signature + every byte)
+        run: |
+          python3 -m venv /tmp/verifyenv
+          /tmp/verifyenv/bin/pip install --quiet asn1crypto==1.5.1 cryptography==50.0.2
+          /tmp/verifyenv/bin/python main/Tools/verify_ipa.py main
 
       - name: Restore FFmpegKit cache
         id: ffmpeg_cache
@@ -204,10 +214,10 @@ jobs:
 
       - name: Clone Open in YouTube (Safari Extension)
         run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension
+          git clone --quiet -n --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension
           cd OpenYouTubeSafariExtension
           git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
-          git checkout --quiet
+          git checkout --quiet c87b5d5551b406477dca883158572f803251f52c # pinned
           mv *.appex ..
 
       - name: Inject Tweaks Into IPA
@@ -303,19 +313,8 @@ jobs:
           cd .. && rm -rf iconwork
           echo "Alternate icons registered into $(basename "$IPA")"
 
-      - name: Rebrand IPA Filename (3.0.4 -> 3.0.5)
-        run: |
-          set -euo pipefail
-          cd main/packages
-          OLD="${{ steps.strip_ipa.outputs.final_ipa }}"
-          NEW="${OLD//3.0.4/3.0.5}"
-          if [ "$OLD" != "$NEW" ] && [ -f "$OLD" ]; then
-            mv "$OLD" "$NEW"
-            echo "Renamed: $OLD -> $NEW"
-          else
-            echo "No 3.0.4 in filename or file missing: $OLD"
-          fi
-          echo "RENAMED_IPA=$NEW" >> "$GITHUB_ENV"
+      - name: Record final IPA name
+        run: echo "RENAMED_IPA=${{ steps.strip_ipa.outputs.final_ipa }}" >> "$GITHUB_ENV"
 
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
