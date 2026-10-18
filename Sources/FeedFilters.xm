@@ -133,5 +133,8 @@ static NSArray *UYTFeedFilter(NSArray *sections, NSString *where) {
     if ([defaults objectForKey:kHideMostRelevant] == nil) {
         [defaults setBool:YES forKey:kHideMostRelevant];
     }
+    if ([defaults objectForKey:@"hideShortsCells"] == nil) {
+        [defaults setBool:YES forKey:@"hideShortsCells"];
+    }
     %init;
 }
