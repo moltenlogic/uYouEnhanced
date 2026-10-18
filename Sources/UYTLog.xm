@@ -633,6 +633,15 @@ NSString *UYTDebugFullReport(void) {
             UYTAppendGroups(s, other, UYTNoiseSampleCap, 12, NO);
         }
 
+        // Feature traces are listed in full so busy feed logging cannot push them out of "recent".
+        NSMutableArray<UYTGroup *> *traces = [NSMutableArray array];
+        for (UYTGroup *g in all) {
+            if ([g.tag isEqualToString:@"[UYT-E]"]) continue;
+            if ([g.sample containsString:@"[ExternalDisplay]"] || [g.sample containsString:@"[Tabs]"]) [traces addObject:g];
+        }
+        [s appendFormat:@"\n---- EXTERNAL DISPLAY / TABS (%lu distinct) ----\n", (unsigned long)traces.count];
+        UYTAppendGroups(s, traces, 400, 80, YES);
+
         NSMutableArray<UYTGroup *> *recent = [NSMutableArray array];
         for (NSUInteger i = all.count; i-- > 0;) {
             UYTGroup *g = all[i];

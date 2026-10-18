@@ -21,7 +21,7 @@
 #import "uYouPlus.h"
 #import "UYTLog.h"
 
-static NSInteger gUYTFeedLogBudget = 400;
+static NSInteger gUYTFeedLogBudget = 150;
 
 static NSString *UYTFeedEmlIds(NSString *desc) {
     if (desc.length == 0) return @"";
@@ -89,7 +89,7 @@ static NSArray *UYTFeedFilter(NSArray *sections, NSString *where) {
             [contents enumerateObjectsUsingBlock:^(YTIItemSectionSupportedRenderers *item, NSUInteger i, BOOL *stop) {
                 NSString *itemDesc = [item.elementRenderer description] ?: [item description] ?: @"";
                 UYTFeedVerdict v = UYTFeedJudge(itemDesc, hideShorts, hideMostRelevant);
-                if (gUYTFeedLogBudget > 0) {
+                if (v != UYTFeedKeep && gUYTFeedLogBudget > 0) {
                     gUYTFeedLogBudget--;
                     UYTDebugInfo(@"[Feed]   s%lu.i%lu ids=[%@] mr=%d -> %@", (unsigned long)idx, (unsigned long)i,
                                  UYTFeedEmlIds(itemDesc), UYTDescIsMostRelevant(itemDesc),

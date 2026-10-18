@@ -1658,6 +1658,13 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %end
 %end
 
+@interface YTPivotBarViewController : UIViewController
+@property (nonatomic, copy) NSString *selectedPivotIdentifier;
+@property (nonatomic, strong) YTIPivotBarRenderer *renderer;
+- (void)selectItemWithPivotIdentifier:(NSString *)pivotIdentifier;
+- (void)resetViewControllersCache;
+@end
+
 %group gHideHomeTab
 %hook YTPivotBarView
 - (void)setRenderer:(YTIPivotBarRenderer *)renderer {
@@ -1681,6 +1688,39 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
         [itemsArray removeObjectAtIndex:indexToRemove];
     }
     %orig;
+}
+%end
+// With the Home button removed, YouTube still loads Home's feed into the first remaining tab at
+// launch, so the app opens on recommendations until Subscriptions is tapped. Same fix as
+// YTLitePlus (switch away, drop the cached tab controllers, switch back), but always landing on
+// Subscriptions.
+static BOOL gUYTStartupTabFixed;
+%hook YTPivotBarViewController
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    if (gUYTStartupTabFixed) return;
+    gUYTStartupTabFixed = YES;
+    if (![self respondsToSelector:@selector(selectItemWithPivotIdentifier:)] || ![self respondsToSelector:@selector(resetViewControllersCache)]) {
+        UYTDebugWarn(@"[Tabs] YTPivotBarViewController API missing; startup tab not fixed");
+        return;
+    }
+    NSMutableArray<NSString *> *ids = [NSMutableArray array];
+    for (YTIPivotBarSupportedRenderers *item in self.renderer.itemsArray) {
+        NSString *pid = item.pivotBarItemRenderer.pivotIdentifier;
+        if (pid.length && ![pid isEqualToString:@"FEwhat_to_watch"]) [ids addObject:pid];
+    }
+    NSString *target = [ids containsObject:@"FEsubscriptions"] ? @"FEsubscriptions" : ids.firstObject;
+    NSString *other = [ids containsObject:@"FElibrary"] ? @"FElibrary" : nil;
+    for (NSString *pid in ids) {
+        if (other) break;
+        if (![pid isEqualToString:target]) other = pid;
+    }
+    UYTDebugInfo(@"[Tabs] startup: selected=%@ tabs=[%@] -> %@ (via %@)", self.selectedPivotIdentifier,
+                 [ids componentsJoinedByString:@","], target, other);
+    if (!target) return;
+    if (other) [self selectItemWithPivotIdentifier:other];
+    [self resetViewControllersCache];
+    [self selectItemWithPivotIdentifier:target];
 }
 %end
 %end
