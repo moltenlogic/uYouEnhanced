@@ -375,9 +375,16 @@ static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
 %end
 
 %group gDisableResumeToShorts
+// Index 1 is the Shorts tab only while it is shown. With uYou's "Hide Shorts tab" on, index 1
+// is Subscriptions, and redirecting it sent the app to Home instead of resuming Subscriptions.
+static BOOL UYTIndexIsShortsTab(NSUInteger index) {
+    BOOL shorts = index == 1 && ![[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsTab"];
+    if (index == 1) UYTDebugInfo(@"[Tabs] setSelectedIndex:1 shortsTabHidden=%d -> %@", !shorts, shorts ? @"redirect to Home" : @"keep");
+    return shorts;
+}
 %hook YTAppViewControllerImpl
 - (void)setSelectedIndex:(NSUInteger)index {
-    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
+    if (IS_ENABLED(kDisableResumeToShorts) && UYTIndexIsShortsTab(index)) {
         %orig(
             0
         );
@@ -390,7 +397,7 @@ static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
 %end
 %hook YTTabBarController
 - (void)setSelectedIndex:(NSUInteger)index {
-    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
+    if (IS_ENABLED(kDisableResumeToShorts) && UYTIndexIsShortsTab(index)) {
         %orig(
             0
         );
