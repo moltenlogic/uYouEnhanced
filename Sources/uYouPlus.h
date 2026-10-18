@@ -162,6 +162,7 @@ static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled"
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
 static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
 static NSString *const kExternalDisplayPlayback = @"externalDisplayPlayback_enabled";
+static NSString *const kHideMostRelevant = @"hideMostRelevant_enabled";
 static NSString *const kYTPremiumLogo = @"ytPremiumLogo_enabled";
 static NSString *const kDisableAnimatedYouTubeLogo = @"disableAnimatedYouTubeLogo_enabled";
 static NSString *const kCenterYouTubeLogo = @"centerYouTubeLogo_enabled";

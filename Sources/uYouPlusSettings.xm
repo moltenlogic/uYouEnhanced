@@ -526,6 +526,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
 
     # pragma mark - UI interface options
     SECTION_HEADER(LOC(@"UI_INTERFACE_OPTIONS"));
+    SWITCH(LOC(@"HIDE_MOST_RELEVANT"), LOC(@"HIDE_MOST_RELEVANT_DESC"), kHideMostRelevant);
 
     SWITCH2(LOC(@"HIDE_HOME_TAB"), LOC(@"RESTART_REQUIRED"), kHideHomeTab);
     SWITCH3(

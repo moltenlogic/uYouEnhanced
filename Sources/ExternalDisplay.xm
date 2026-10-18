@@ -154,6 +154,11 @@ static void UYTExtAttach(void) {
 
 %hook YTHotConfigIosClientGlobalConfigImpl
 - (BOOL)fullscreenHdmiHamplayer {
+    static BOOL logged;
+    if (!logged) {
+        logged = YES;
+        UYTDebugInfo(@"[ExternalDisplay] hot config fullscreenHdmiHamplayer queried (forcing=%d)", UYTExtEnabled());
+    }
     return UYTExtEnabled() ? YES : %orig;
 }
 %end
@@ -169,6 +174,7 @@ static void UYTExtAttach(void) {
 - (id)init {
     self = %orig;
     gUYTHDMIService = self;
+    UYTDebugInfo(@"[ExternalDisplay] YTHDMIServiceImpl created");
     return self;
 }
 
@@ -190,6 +196,14 @@ static void UYTExtAttach(void) {
 
 - (void)enableHDMIPlayback:(id)playbackController {
     gUYTLastPlayerViewController = playbackController;
+    UYTDebugInfo(@"[ExternalDisplay] enableHDMIPlayback: pvc=%@ scene=%d screen=%d",
+                 NSStringFromClass([playbackController class]), gUYTExtScene != nil,
+                 UYTGetIvar(self, "_secondScreen") != nil);
+    %orig;
+}
+
+- (void)disableHDMIPlayback {
+    UYTDebugInfo(@"[ExternalDisplay] disableHDMIPlayback");
     %orig;
 }
 
@@ -199,6 +213,8 @@ static void UYTExtAttach(void) {
     BOOL ok = %orig;
     UIWindowScene *scene = gUYTExtScene;
     UIWindow *window = UYTGetIvar(self, "_secondWindow");
+    UYTDebugInfo(@"[ExternalDisplay] setViewToMirror: ok=%d view=%@ window=%d scene=%d",
+                 ok, NSStringFromClass([view class]), window != nil, scene != nil);
     if (UYTExtEnabled() && scene && window && window.windowScene != scene) {
         window.windowScene = scene;
         window.frame = scene.coordinateSpace.bounds;
@@ -236,10 +252,34 @@ static void UYTExtAttach(void) {
 }
 %end
 
+static void UYTExtLogEnvironment(NSString *why) {
+    NSMutableArray *scenes = [NSMutableArray array];
+    for (UIScene *s in UIApplication.sharedApplication.connectedScenes) {
+        [scenes addObject:[NSString stringWithFormat:@"%@/%@/state=%ld", NSStringFromClass([s.delegate class]),
+                           s.session.role, (long)s.activationState]];
+    }
+    UYTDebugInfo(@"[ExternalDisplay] %@: enabled=%d screens=%lu scenes=[%@] service=%d mirroring=%d appState=%ld",
+                 why, UYTExtEnabled(), (unsigned long)UIScreen.screens.count, [scenes componentsJoinedByString:@"; "],
+                 gUYTHDMIService != nil, UYTExtMirroring(), (long)UIApplication.sharedApplication.applicationState);
+}
+
 %ctor {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults objectForKey:kExternalDisplayPlayback] == nil) {
         [defaults setBool:YES forKey:kExternalDisplayPlayback];
     }
     %init;
+
+    NSDictionary *roles = [NSBundle.mainBundle objectForInfoDictionaryKey:@"UIApplicationSceneManifest"][@"UISceneConfigurations"];
+    UYTDebugInfo(@"[ExternalDisplay] loaded; Info.plist scene roles: %@", [[roles allKeys] componentsJoinedByString:@", "]);
+
+    NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
+    NSArray *names = @[UIScreenDidConnectNotification, UIScreenDidDisconnectNotification,
+                       UISceneWillConnectNotification, UISceneDidDisconnectNotification,
+                       UIApplicationDidEnterBackgroundNotification, UIApplicationWillEnterForegroundNotification];
+    for (NSString *name in names) {
+        [nc addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+            UYTExtLogEnvironment(note.name);
+        }];
+    }
 }

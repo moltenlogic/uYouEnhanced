@@ -311,6 +311,8 @@
 
 "EXTERNAL_DISPLAY_PLAYBACK" = "External display playback";
 "EXTERNAL_DISPLAY_PLAYBACK_DESC" = "Plays videos fullscreen on a wired external display (e.g. Xreal glasses) instead of mirroring, and keeps playing when the phone is locked. Needs a build with the external display option on.";
+"HIDE_MOST_RELEVANT" = "Hide \"Most relevant\" in Subscriptions";
+"HIDE_MOST_RELEVANT_DESC" = "Removes the \"Most relevant\" shelf from the Subscriptions feed. Shorts there are hidden by uYou's Hide Shorts cells switch.";
 "FIX_PLAYBACK_ISSUES" = "Fix playback issues";
 "FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
